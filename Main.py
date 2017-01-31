@@ -78,19 +78,19 @@ class Parser(HTMLParser):
             Locks.tagsLock.release()
             Locks.ticksLock.release()
 
-# class myThread(threading.Thread):
-#     def __init__(self, name):
-#         threading.Thread.__init__(self)
-#         self.name = name
-#     def run(self):
-#         process(self.name)
-#
-#
-# def process(url):
-#     print("Opening ", url)
-#     response = urllib.request.urlopen(url)
-#     parser = Parser()
-#     parser.feed(str(response.read()))
+class myThread(threading.Thread):
+    def __init__(self, name):
+        threading.Thread.__init__(self)
+        self.name = name
+    def run(self):
+        process(self.name)
+
+
+def process(url):
+    # print("Opening ", url)
+    response = urllib.request.urlopen(url)
+    parser = Parser()
+    parser.feed(str(response.read()))
 
 
 def main():
@@ -99,7 +99,7 @@ def main():
     start = time.time()
     visited = list()
     threads = list()
-    while len(Stats.urls) > 0:
+    while True:
         if time.time()-start > 60:
             print("Time is up")
             break
@@ -113,13 +113,10 @@ def main():
         if len(visited) != len(set(visited)):
             continue
 
-        print("Opening ", url)
-        response = urllib.request.urlopen(url)
-        parser = Parser()
-        parser.feed(str(response.read()))
-        # t = myThread(url)
-        # t.start()
-        # threads.append(t)
+        t = myThread(url)
+        print("Starting new thread on url: ", url)
+        t.start()
+        threads.append(t)
 
 
 
