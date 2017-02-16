@@ -1,5 +1,8 @@
 import urllib.request, re, Stats, time, Locks, threading
+from ParseCMDArgs import parse
 from html.parser import HTMLParser
+from DataVisual import draw
+from _thread import exit as thread_exit
 
 class Parser(HTMLParser):
     flag = False
@@ -9,18 +12,25 @@ class Parser(HTMLParser):
     tags = None
 
     def handle_starttag(self, tag, attrs):
-        #CHECKING FOR HREF TAG FOR VIDEOS
+        #IF HAVE TAGS AND VIEW COUNT THEN FINISH PROCESSING THIS URL/VIDEO
         if self.flagView and self.flagTags:
             self.flagView = False
             self.flagTags = False
             self.process_tags(self.tags)
+
+        # CHECKING FOR HREF TAG FOR VIDEOS
         if tag == 'a':
             for name, value in attrs:
                 if name == 'href':
                     if re.search("watch\?v=", value, flags=0):
-                        Locks.urlsLock.acquire()
+                        Locks.urlsLock.acquire(blocking=True,timeout=-1)
                         Stats.urls.append(Stats.YOUTUBE + value)
                         Locks.urlsLock.release()
+
+        # IF URL BEING PARSED IS YOUTUBE.COM SKIP ANY ANALYSIS ON IT
+        elif threading.current_thread().name == Stats.YOUTUBE:
+            return
+
         #CHECKING FOR KEYWORDS START TAG
         elif tag == 'meta':
             if attrs[0][0] == 'name' and attrs[0][1] == 'keywords':
@@ -28,6 +38,7 @@ class Parser(HTMLParser):
                 print("tags: ", string)
                 self.tags = string
                 self.flagTags = True
+
         elif tag == 'div':
             for name, value in attrs:
                 if name == 'class':
@@ -46,8 +57,8 @@ class Parser(HTMLParser):
             print(self.views)
 
     def process_tags(self, tags):
-        Locks.tagsLock.acquire()
-        Locks.ticksLock.acquire()
+        Locks.tagsLock.acquire(blocking=True,timeout=-1)
+        Locks.ticksLock.acquire(blocking=True,timeout=-1)
 
         #IF EMPTY LIST JUST DUMP IT ALL IN THERE
         if len(Stats.tags) == 0:
@@ -87,39 +98,49 @@ class myThread(threading.Thread):
 
 
 def process(url):
-    # print("Opening ", url)
-    response = urllib.request.urlopen(url)
+    # OPEN URL AND BEGIN PARSING IT
+    try:
+        response = urllib.request.urlopen(url)
+    except:
+        print("Bad url found, ending thread")
+        thread_exit()
     parser = Parser()
     parser.feed(str(response.read()))
 
 
 def main():
-    # response = urllib.request.urlopen("http://youtube.com");
-    Stats.urls.append(Stats.YOUTUBE)
+    # INITIALIZE LIST OF URLS AND TIMER
+    seconds, start = parse()
+    Stats.urls.append(start)
     start = time.time()
-    visited = list()
+    # visited = list()
     threads = list()
+    # same = 0
+
+    # FOR CERTAIN TIME KEEP SPAWNING THREADS FOR VIDEOS
     while True:
-        if time.time()-start > 60:
+        if time.time()-start > seconds:
             print("Time is up")
             break
+        Locks.urlsLock.acquire(blocking=True,timeout=-1)
         if len(Stats.urls) == 0:
-            for t in threads:
-                t.join()
-        url = Stats.urls.pop()
-
-        #CHECK FOR DUPLICATE URLS
-        visited.append(url)
-        if len(visited) != len(set(visited)):
+            Locks.urlsLock.release()
             continue
 
+        url = Stats.urls.pop()
+        Locks.urlsLock.release()
+
+        # CREATE A NEW THREAD NAMED AFTER URL BEING PARSED
         t = myThread(url)
         print("Starting new thread on url: ", url)
         t.start()
         threads.append(t)
 
 
-
+    # MAKE SURE ALL THREADS ARE JOINED AND CLEANED UP
+    for t in threads:
+        t.join()
     print(Stats.tags, "\n", Stats.ticks)
+    draw()
 
-main();
+main()
