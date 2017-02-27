@@ -6,16 +6,28 @@ from _thread import exit as thread_exit
 
 class Parser(HTMLParser):
     flag = False
+
     flagView = False
     flagTags = False
+
+    creatorFlag = False
+    creatorSetFlag = False
+
+    publishedFlag = False
+    publishedSetFlag = False
+
     views = 0
     tags = None
+    creatorName = None
+    published = None
 
     def handle_starttag(self, tag, attrs):
         #IF HAVE TAGS AND VIEW COUNT THEN FINISH PROCESSING THIS URL/VIDEO
-        if self.flagView and self.flagTags:
+        if self.flagView and self.flagTags and self.creatorSetFlag and self.publishedSetFlag:
             self.flagView = False
             self.flagTags = False
+            self.creatorSetFlag = False
+            self.publishedSetFlag = False
             self.process_tags(self.tags)
 
         # CHECKING FOR HREF TAG FOR VIDEOS
@@ -39,11 +51,26 @@ class Parser(HTMLParser):
                 self.tags = string
                 self.flagTags = True
 
+        #FOR THE NUMBER OF VIEWS ON VIDEO
         elif tag == 'div':
             for name, value in attrs:
                 if name == 'class':
                     if value == 'watch-view-count':
                         self.flag = True
+
+        #LOOKING FOR VIDEO CREATOR NAME
+        elif tag == 'script':
+            for name, value in attrs:
+                if name == 'type':
+                    if value == 'application/ld+json':
+                        self.creatorFlag = True
+
+        #DATE VIDEO WAS PUBLISHED
+        elif tag == "strong":
+            for name, value in attrs:
+                    if name == 'class' and value == 'watch-time-text':
+                        self.publishedFlag = True
+
 
     def handle_data(self, data):
         if self.flag:
@@ -56,9 +83,27 @@ class Parser(HTMLParser):
             self.flagView = True
             print(self.views)
 
+        #GRAB CREATOR'S NAME, MATCHES ANY CHARACTER BUT NEWLINE AND ALLOWS ANY NUMBER OF REPETITIONS
+        elif self.creatorFlag:
+            self.creatorFlag = False
+            self.creatorSetFlag = True
+            self.creatorName = re.search('"name": "(.*)"', data).group(1)
+
+        #GRAB DATA PUBLISHED
+        elif self.publishedFlag:
+            self.publishedFlag = False
+            self.published = re.search('Published on (.*)', data).group(1)
+            self.publishedSetFlag = True
+
+
     def process_tags(self, tags):
         Locks.tagsLock.acquire(blocking=True,timeout=-1)
         Locks.ticksLock.acquire(blocking=True,timeout=-1)
+
+        #ADDING TO LIST TUPLES, CREATOR, VIEWS, TAGS, DATE PUBLISHED
+        Locks.video_info.acquire(blocking=True,timeout=1)
+        Stats.video_info.append((self.creatorName, self.views, self.tags, self.published))
+        Locks.video_info.release()
 
         #IF EMPTY LIST JUST DUMP IT ALL IN THERE
         if len(Stats.tags) == 0:
@@ -116,9 +161,12 @@ def main():
     # visited = list()
     threads = list()
     # same = 0
+    n = 0
 
     # FOR CERTAIN TIME KEEP SPAWNING THREADS FOR VIDEOS
     while True:
+        # if n == 3:
+        #     break
         if time.time()-start > seconds:
             print("Time is up")
             break
@@ -126,7 +174,7 @@ def main():
         if len(Stats.urls) == 0:
             Locks.urlsLock.release()
             continue
-
+        n+=1
         url = Stats.urls.pop()
         Locks.urlsLock.release()
 
@@ -137,10 +185,14 @@ def main():
         threads.append(t)
 
 
-    # MAKE SURE ALL THREADS ARE JOINED AND CLEANED UP
+    # # MAKE SURE ALL THREADS ARE JOINED AND CLEANED UP
+    # while True:
+    #     n = 1 + 1
     for t in threads:
         t.join()
-    print(Stats.tags, "\n", Stats.ticks)
+    # print(Stats.tags, "\n", Stats.ticks)
+    # for name, view, tag, published in Stats.video_info:
+    #     print(published)
     draw()
 
 main()

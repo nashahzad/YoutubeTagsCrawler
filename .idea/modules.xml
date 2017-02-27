@@ -3,6 +3,7 @@
   <component name="ProjectModuleManager">
     <modules>
       <module fileurl="file://$PROJECT_DIR$/.idea/BasicCrawler.iml" filepath="$PROJECT_DIR$/.idea/BasicCrawler.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/YoutubeTagsCrawler.iml" filepath="$PROJECT_DIR$/.idea/YoutubeTagsCrawler.iml" />
     </modules>
   </component>
 </project>
