@@ -11,7 +11,7 @@ def parse():
     args = parser.parse_args()
 
     if args.time == None:
-        args.time = 60
+        args.time = 10
     if args.url == None:
         args.url = YOUTUBE
 

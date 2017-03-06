@@ -3,6 +3,7 @@ from ParseCMDArgs import parse
 from html.parser import HTMLParser
 from DataVisual import draw
 from _thread import exit as thread_exit
+from plotly.offline import download_plotlyjs, init_notebook_mode, plot, iplot
 
 class Parser(HTMLParser):
     flag = False
@@ -153,20 +154,15 @@ def process(url):
     parser.feed(str(response.read()))
 
 
-def main():
+if __name__ == "__main__":
     # INITIALIZE LIST OF URLS AND TIMER
     seconds, start = parse()
     Stats.urls.append(start)
     start = time.time()
-    # visited = list()
     threads = list()
-    # same = 0
-    n = 0
 
     # FOR CERTAIN TIME KEEP SPAWNING THREADS FOR VIDEOS
     while True:
-        # if n == 3:
-        #     break
         if time.time()-start > seconds:
             print("Time is up")
             break
@@ -174,25 +170,20 @@ def main():
         if len(Stats.urls) == 0:
             Locks.urlsLock.release()
             continue
-        n+=1
         url = Stats.urls.pop()
         Locks.urlsLock.release()
 
-        # CREATE A NEW THREAD NAMED AFTER URL BEING PARSED
+        #CREATE A NEW THREAD NAMED AFTER URL BEING PARSED
         t = myThread(url)
         print("Starting new thread on url: ", url)
         t.start()
         threads.append(t)
 
 
-    # # MAKE SURE ALL THREADS ARE JOINED AND CLEANED UP
-    # while True:
-    #     n = 1 + 1
+    #MAKE SURE ALL THREADS ARE JOINED AND CLEANED UP
     for t in threads:
         t.join()
-    # print(Stats.tags, "\n", Stats.ticks)
-    # for name, view, tag, published in Stats.video_info:
-    #     print(published)
-    draw()
 
-main()
+    # init_notebook_mode()
+    # iplot([{"x": [1, 2, 3], "y": [3, 1, 6]}])
+    draw()
