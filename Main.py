@@ -3,7 +3,6 @@ from ParseCMDArgs import parse
 from html.parser import HTMLParser
 from DataVisual import draw
 from _thread import exit as thread_exit
-from plotly.offline import download_plotlyjs, init_notebook_mode, plot, iplot
 
 class Parser(HTMLParser):
     flag = False
@@ -17,18 +16,22 @@ class Parser(HTMLParser):
     publishedFlag = False
     publishedSetFlag = False
 
+    video_titleSetFlag = False
+
     views = 0
     tags = None
     creatorName = None
     published = None
+    video_title = None
 
     def handle_starttag(self, tag, attrs):
         #IF HAVE TAGS AND VIEW COUNT THEN FINISH PROCESSING THIS URL/VIDEO
-        if self.flagView and self.flagTags and self.creatorSetFlag and self.publishedSetFlag:
+        if self.flagView and self.flagTags and self.creatorSetFlag and self.publishedSetFlag and self.video_titleSetFlag:
             self.flagView = False
             self.flagTags = False
             self.creatorSetFlag = False
             self.publishedSetFlag = False
+            self.video_titleSetFlag = False
             self.process_tags(self.tags)
 
         # CHECKING FOR HREF TAG FOR VIDEOS
@@ -45,12 +48,19 @@ class Parser(HTMLParser):
             return
 
         #CHECKING FOR KEYWORDS START TAG
+        # VIDEO TITLE
+        # <meta name="title" content="TITLE">
         elif tag == 'meta':
             if attrs[0][0] == 'name' and attrs[0][1] == 'keywords':
                 string = attrs[1][1].split(",")
                 print("tags: ", string)
                 self.tags = string
                 self.flagTags = True
+            elif attrs[0][0] == 'name' and attrs[0][1] == 'title':
+                print("Video title: " + attrs[1][1])
+                self.video_title = attrs[1][1]
+                self.video_titleSetFlag = True
+
 
         #FOR THE NUMBER OF VIEWS ON VIDEO
         elif tag == 'div':
@@ -73,6 +83,8 @@ class Parser(HTMLParser):
                         self.publishedFlag = True
 
 
+
+
     def handle_data(self, data):
         if self.flag:
             self.flag = False
@@ -93,8 +105,13 @@ class Parser(HTMLParser):
         #GRAB DATA PUBLISHED
         elif self.publishedFlag:
             self.publishedFlag = False
-            self.published = re.search('Published on (.*)', data).group(1)
+            try:
+                self.published = re.search('Published on (.*)', data).group(1)
+            except:
+                pass
             self.publishedSetFlag = True
+
+        #GRAB VIDEO TITLE
 
 
     def process_tags(self, tags):
@@ -103,7 +120,7 @@ class Parser(HTMLParser):
 
         #ADDING TO LIST TUPLES, CREATOR, VIEWS, TAGS, DATE PUBLISHED
         Locks.video_info.acquire(blocking=True,timeout=1)
-        Stats.video_info.append((self.creatorName, self.views, self.tags, self.published))
+        Stats.video_info.append((self.video_title, self.creatorName, self.views, self.tags, self.published))
         Locks.video_info.release()
 
         #IF EMPTY LIST JUST DUMP IT ALL IN THERE
@@ -160,6 +177,7 @@ if __name__ == "__main__":
     Stats.urls.append(start)
     start = time.time()
     threads = list()
+    # c = 0
 
     # FOR CERTAIN TIME KEEP SPAWNING THREADS FOR VIDEOS
     while True:
@@ -174,6 +192,9 @@ if __name__ == "__main__":
         Locks.urlsLock.release()
 
         #CREATE A NEW THREAD NAMED AFTER URL BEING PARSED
+        # if c > 3:
+        #     break
+        # c +=1
         t = myThread(url)
         print("Starting new thread on url: ", url)
         t.start()
@@ -184,6 +205,4 @@ if __name__ == "__main__":
     for t in threads:
         t.join()
 
-    # init_notebook_mode()
-    # iplot([{"x": [1, 2, 3], "y": [3, 1, 6]}])
     draw()

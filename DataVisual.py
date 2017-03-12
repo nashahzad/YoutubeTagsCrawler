@@ -1,25 +1,92 @@
-# from plotly.offline import download_plotlyjs, init_notebook_mode, plot, iplot, offline
-# import cufflinks as cf
-# import pandas as pd
-from Stats import ticks, tags #, video_info
+from Stats import ticks, tags, video_info
 from plotly import graph_objs
 from plotly.offline import plot
+import matplotlib.pyplot as plt
+plt.rcdefaults()
+import numpy as np
 
 def draw():
-    # offline.plot()
-    # cf.go_offline()
-    # cf.datagen.box(20).iplot(kind='box', legend=False)
-    # simple_df = pd.DataFrame({'Tags': tags, 'Ticks': ticks})
-    # simple_df.iplot(kind='bar')
-    # d = {'creator_name': tuple([str(video[0]) for video in video_info]),
-    #      'views': tuple([int(video[1]) for video in video_info]),
-    #      'tags': tuple([tuple(video[2]) for video in video_info]),
-    #      'date_published': tuple([str(video[3]) for video in video_info])}
 
-    # dataframe = pd.Series(data=d)
+    #PIE CHART OF 30 MOST POPULAR TAGS
+    pie_indeces = np.argpartition(ticks, -50)[-50:]
+    pie_ticks = [int(ticks[x]) for x in pie_indeces]
+    pie_tags = [str(tags[x]) for x in pie_indeces]
 
-    frame = graph_objs.Pie(labels=tags, values=ticks)
+    frame = graph_objs.Pie(labels=pie_tags, values=pie_ticks)
 
-    # print("Dataframe:\n" + dataframe.describe())
+    plot([frame], filename='html/YouTubeTags_PieChart.html')
 
-    plot([frame])
+    #GET THE 15 MOST POPULAR TAGS
+    #GET THEIR INDECES TO ALSO GET CORRESPONDING TAG NAME
+    indeces = np.argpartition(ticks, -20)[-20:]
+    ticks_sub = [int(ticks[x]) for x in indeces]
+    tags_sub = [str(tags[x]) for x in indeces]
+
+    x = tags_sub
+    y = ticks_sub
+
+    data = [graph_objs.Bar(
+        x=x, y=y,
+        marker=dict(
+            color='rgb(158,202,225)',
+            line=dict(
+                color='rgb(8,48,107)',
+                width=1.5),
+        ),
+        opacity=0.6
+    )]
+
+    layout = graph_objs.Layout(
+        annotations=[
+            dict(x=xi, y=yi,
+                 text=str(yi),
+                 xanchor='center',
+                 yanchor='bottom',
+                 showarrow=False,
+                 ) for xi, yi in zip(x, y)]
+    )
+
+    fig = graph_objs.Figure(data=data, layout=layout)
+    plot(fig, filename='html/YouTubeTags_BarChart.html')
+
+    #MAKE A VISUAL BASED ON MOST VIEWED VIDEOS
+    #GRAB 15 MOST VIEWED VIDEOS
+    #VIDEO_INFO: (TITLE, CREATOR, VIEWS, TAGS, DATE PUBLISHED)
+    video_title, creator, views, tag, date = zip(*video_info)
+    video_indeces = np.argpartition(views, -20)[-20:]
+    total_views = list()
+    total_tags = list()
+    total_video_titles = list()
+
+    for x in video_indeces:
+        total_views.append(views[x])
+        total_tags.append(tag[x])
+        total_video_titles.append(video_title[x])
+
+    c = 0
+    for x in total_tags:
+        total_tags[c] = ' '.join(x)
+        c += 1
+    trace0 = graph_objs.Bar(
+        x=total_video_titles,
+        y=total_views,
+        text=total_tags,
+        marker=dict(
+            color='rgb(158,202,225)',
+            line=dict(
+                color='rgb(8,48,107)',
+                width=1.5,
+            )
+        ),
+        opacity=0.6
+    )
+
+    data = [trace0]
+    layout = graph_objs.Layout(
+        title='Most Popular Videos',
+    )
+
+    fig = graph_objs.Figure(data=data, layout=layout)
+    plot(fig, filename='html/YouTubeTags_PopularVideos.html')
+
+
